@@ -8,8 +8,9 @@ import (
 )
 
 type Config struct {
-	Token string `env:"TOKEN"`
-	Host  string `env:"HOST"  envDefault:"https://api.spacetraders.io/v2"`
+	Token         string `env:"TOKEN,required"`
+	Host          string `env:"HOST"           envDefault:"https://api.spacetraders.io/v2"`
+	VerboseErrors bool   `env:"VERBOSE_ERRORS" envDefault:"false"`
 }
 
 type Package struct {

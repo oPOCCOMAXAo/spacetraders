@@ -9,6 +9,7 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/opoccomaxao/gopkg v0.0.0-20260718214901-68a8eaaec60b
 	github.com/pkg/errors v0.9.1
+	golang.org/x/time v0.15.0
 )
 
 require (
