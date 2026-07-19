@@ -1,0 +1,8 @@
+.local/
+.opencode/
+.vscode/
+.wiki/
+bin/
+
+# delve debug
+__debug*
