@@ -109,7 +109,7 @@ func (c *Client) Request(
 	if statusCode < http.StatusOK || statusCode > http.StatusNoContent {
 		c.logErrors(statusCode, respBody)
 
-		return pkgerrors.WithStack(mapError(statusCode, c.parseError(respBody)))
+		return pkgerrors.WithStack(c.mapError(statusCode, c.parseError(respBody)))
 	}
 
 	return c.decodeResult(respBody, req)
@@ -237,7 +237,7 @@ func (c *Client) doWithRetry(
 
 			c.sleepBackoff(ctx, attempt)
 		case retryAble:
-			lastErr = pkgerrors.WithStack(mapError(statusCode, c.parseError(respBody)))
+			lastErr = pkgerrors.WithStack(c.mapError(statusCode, c.parseError(respBody)))
 			c.sleepFor(ctx, retryAfter, attempt)
 		default:
 			return statusCode, respBody, nil
@@ -308,7 +308,7 @@ func (c *Client) doOnce(
 	}
 
 	if resp.StatusCode == http.StatusTooManyRequests {
-		return resp.StatusCode, respBody, true, parseRetryAfter(resp), nil
+		return resp.StatusCode, respBody, true, c.parseRetryAfter(resp), nil
 	}
 
 	if resp.StatusCode >= http.StatusInternalServerError {
@@ -330,7 +330,7 @@ func (c *Client) parseError(body []byte) *APIError {
 
 // parseRetryAfter reads the Retry-After header (whole seconds per the
 // SpaceTraders spec) and returns it as a Duration, or 0 if absent/invalid.
-func parseRetryAfter(resp *http.Response) time.Duration {
+func (*Client) parseRetryAfter(resp *http.Response) time.Duration {
 	v := resp.Header.Get("Retry-After")
 	if v == "" {
 		return 0
@@ -386,6 +386,6 @@ func (c *Client) sleep(ctx context.Context, d time.Duration) {
 }
 
 // newRateLimiter builds the default proactive limiter used by NewClient.
-func newRateLimiter() *rate.Limiter {
+func (*Client) newRateLimiter() *rate.Limiter {
 	return rate.NewLimiter(rate.Limit(rateLimitPerSec), rateLimitBurst)
 }

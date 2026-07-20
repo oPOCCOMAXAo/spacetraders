@@ -57,7 +57,7 @@ func (c *Client) verboseLogErrors(statusCode int, body []byte) {
 
 // mapError translates an HTTP status + parsed APIError into a wrapped sentinel
 // from gopkg/pkg/errors so callers can use errors.Is.
-func mapError(statusCode int, apiErr *APIError) error {
+func (*Client) mapError(statusCode int, apiErr *APIError) error {
 	msg := "unexpected status code"
 	if apiErr != nil && apiErr.Message != "" {
 		msg = apiErr.Message

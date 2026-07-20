@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	ss "github.com/opoccomaxao/spacetraders/pkg/services/spacetraders/structs"
+	"github.com/opoccomaxao/spacetraders/pkg/utils/sequtils"
 )
 
 type ListWaypointsRequest struct {
@@ -28,7 +29,7 @@ func (c *Client) ListSystemWaypoints(
 		Waypoints []ss.Waypoint `json:"waypoints"`
 	}
 
-	query := buildPageQuery(req.Page, req.Limit)
+	query := c.buildPageQuery(req.Page, req.Limit)
 	for _, t := range req.Traits {
 		query.Add("traits", t)
 	}
@@ -51,20 +52,26 @@ func (c *Client) ListSystemWaypointsSeq(
 	ctx context.Context,
 	req ListWaypointsRequest,
 ) func(yield func(*ss.Waypoint, error) bool) {
-	return paginate(ctx, req.Page, req.Limit, func(page, limit int) ([]*ss.Waypoint, error) {
-		items, _, err := c.ListSystemWaypoints(ctx, ListWaypointsRequest{
-			SystemSymbol: req.SystemSymbol,
-			Page:         page,
-			Limit:        limit,
-			Traits:       req.Traits,
-		})
+	return sequtils.Paginate(
+		ctx,
+		req.Page,
+		req.Limit,
+		defaultPageSize,
+		func(page, limit int) ([]*ss.Waypoint, error) {
+			items, _, err := c.ListSystemWaypoints(ctx, ListWaypointsRequest{
+				SystemSymbol: req.SystemSymbol,
+				Page:         page,
+				Limit:        limit,
+				Traits:       req.Traits,
+			})
 
-		return toPtrSlice(items), err
-	})
+			return sequtils.ToPtrSlice(items), err
+		},
+	)
 }
 
 // buildPageQuery returns a url.Values pre-filled with page/limit when set.
-func buildPageQuery(page, limit int) url.Values {
+func (*Client) buildPageQuery(page, limit int) url.Values {
 	res := make(url.Values)
 	if page > 0 {
 		res.Set("page", strconv.Itoa(page))

@@ -46,8 +46,8 @@ func NewClient(
 		client: &http.Client{
 			Timeout: httpTimeout,
 		},
-		rateLimit: newRateLimiter(),
 	}
+	res.rateLimit = res.newRateLimiter()
 
 	if config.VerboseErrors {
 		res.logErrors = res.verboseLogErrors

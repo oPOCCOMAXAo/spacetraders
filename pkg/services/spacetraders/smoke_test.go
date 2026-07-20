@@ -13,147 +13,118 @@ import (
 
 	"github.com/opoccomaxao/spacetraders/pkg/services/spacetraders"
 	ss "github.com/opoccomaxao/spacetraders/pkg/services/spacetraders/structs"
+	"github.com/stretchr/testify/suite"
 )
 
-func smokeClient(t *testing.T) *spacetraders.Client {
-	t.Helper()
+type SmokeSuite struct {
+	suite.Suite
 
+	client *spacetraders.Client
+}
+
+func (s *SmokeSuite) SetupSuite() {
 	if os.Getenv("ST_SMOKE") != "1" {
-		t.Skip("skipping smoke test; set ST_SMOKE=1 and SPACETRADERS_TOKEN to run")
+		s.T().Skip("skipping smoke test; set ST_SMOKE=1 and SPACETRADERS_TOKEN to run")
 	}
 
 	token := os.Getenv("SPACETRADERS_TOKEN")
 	if token == "" {
-		t.Fatal("SPACETRADERS_TOKEN must be set when ST_SMOKE=1")
+		s.FailNow("SPACETRADERS_TOKEN must be set when ST_SMOKE=1")
 	}
 
 	client, err := spacetraders.NewClient(spacetraders.Config{
 		Token:         token,
 		VerboseErrors: true,
 	}, slog.New(slog.NewTextHandler(os.Stdout, nil)))
-	if err != nil {
-		t.Fatalf("NewClient: %+v", err)
-	}
+	s.Require().NoError(err, "NewClient")
 
-	return client
+	s.client = client
 }
 
-func smokeCtx(t *testing.T) (context.Context, context.CancelFunc) {
-	t.Helper()
-
+func (s *SmokeSuite) ctx() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), 60*time.Second)
 }
 
-func TestSmokeAgent(t *testing.T) {
-	client := smokeClient(t)
+func (s *SmokeSuite) firstShip(ctx context.Context) ss.Ship {
+	ships, _, err := s.client.ListMyShips(ctx, spacetraders.ListShipsRequest{Limit: 20})
+	s.Require().NoError(err, "ListMyShips")
+	s.Require().NotEmpty(ships, "no ships returned")
 
-	ctx, cancel := smokeCtx(t)
-	defer cancel()
-
-	agent, err := client.GetMyAgent(ctx)
-	if err != nil {
-		t.Fatalf("GetMyAgent: %+v", err)
-	}
-
-	t.Logf("agent: symbol=%s credits=%d hq=%s faction=%s ships=%d",
-		agent.Symbol, agent.Credits, agent.Headquarters, agent.StartingFaction, agent.ShipCount)
-
-	if agent.Symbol == "" {
-		t.Fatal("agent symbol is empty")
-	}
-
-	if agent.Credits <= 0 {
-		t.Fatalf("agent credits not positive: %d", agent.Credits)
-	}
-}
-
-func firstShip(t *testing.T, client *spacetraders.Client, ctx context.Context) ss.Ship {
-	t.Helper()
-
-	ships, _, err := client.ListMyShips(ctx, spacetraders.ListShipsRequest{Limit: 20})
-	if err != nil {
-		t.Fatalf("ListMyShips: %+v", err)
-	}
-
-	if len(ships) == 0 {
-		t.Fatal("no ships returned")
-	}
-
-	for _, s := range ships {
-		t.Logf("  ship: symbol=%s role=%s nav=%s waypoint=%s fuel=%d/%d",
-			s.Symbol, s.Registration.Role, s.Nav.Status,
-			s.Nav.WaypointSymbol, s.Fuel.Current, s.Fuel.Capacity)
+	for _, ship := range ships {
+		s.T().Logf("  ship: symbol=%s role=%s nav=%s waypoint=%s fuel=%d/%d",
+			ship.Symbol, ship.Registration.Role, ship.Nav.Status,
+			ship.Nav.WaypointSymbol, ship.Fuel.Current, ship.Fuel.Capacity)
 	}
 
 	return ships[0]
 }
 
-func TestSmokeShips(t *testing.T) {
-	client := smokeClient(t)
-
-	ctx, cancel := smokeCtx(t)
+func (s *SmokeSuite) TestAgent() {
+	ctx, cancel := s.ctx()
 	defer cancel()
 
-	first := firstShip(t, client, ctx)
+	agent, err := s.client.GetMyAgent(ctx)
+	s.Require().NoError(err, "GetMyAgent")
 
-	single, err := client.GetMyShip(ctx, first.Symbol)
-	if err != nil {
-		t.Fatalf("GetMyShip: %+v", err)
-	}
+	s.T().Logf("agent: symbol=%s credits=%d hq=%s faction=%s ships=%d",
+		agent.Symbol, agent.Credits, agent.Headquarters, agent.StartingFaction, agent.ShipCount)
 
-	t.Logf("GetMyShip: symbol=%s frame=%s cargo=%d/%d",
+	s.Require().NotEmpty(agent.Symbol, "agent symbol is empty")
+	s.Require().Positive(agent.Credits, "agent credits not positive")
+}
+
+func (s *SmokeSuite) TestShips() {
+	ctx, cancel := s.ctx()
+	defer cancel()
+
+	first := s.firstShip(ctx)
+
+	single, err := s.client.GetMyShip(ctx, first.Symbol)
+	s.Require().NoError(err, "GetMyShip")
+
+	s.T().Logf("GetMyShip: symbol=%s frame=%s cargo=%d/%d",
 		single.Symbol, single.Frame.Symbol, single.Cargo.Units, single.Cargo.Capacity)
 
-	cooldown, err := client.GetShipCooldown(ctx, first.Symbol)
-	if err != nil {
-		t.Fatalf("GetShipCooldown: %+v", err)
-	}
+	cooldown, err := s.client.GetShipCooldown(ctx, first.Symbol)
+	s.Require().NoError(err, "GetShipCooldown")
 
-	t.Logf("cooldown: remaining=%ds expiration=%s",
+	s.T().Logf("cooldown: remaining=%ds expiration=%s",
 		cooldown.RemainingSeconds, cooldown.Expiration)
 }
 
-func TestSmokeContracts(t *testing.T) {
-	client := smokeClient(t)
-
-	ctx, cancel := smokeCtx(t)
+func (s *SmokeSuite) TestContracts() {
+	ctx, cancel := s.ctx()
 	defer cancel()
 
-	contracts, _, err := client.ListMyContracts(ctx, spacetraders.ListContractsRequest{Limit: 20})
-	if err != nil {
-		t.Fatalf("ListMyContracts: %+v", err)
-	}
+	contracts, _, err := s.client.ListMyContracts(ctx, spacetraders.ListContractsRequest{Limit: 20})
+	s.Require().NoError(err, "ListMyContracts")
 
-	t.Logf("contracts: count=%d", len(contracts))
+	s.T().Logf("contracts: count=%d", len(contracts))
 
 	for _, c := range contracts {
-		t.Logf("  contract: id=%s type=%s faction=%s accepted=%v fulfilled=%v",
+		s.T().Logf("  contract: id=%s type=%s faction=%s accepted=%v fulfilled=%v",
 			c.ID, c.Type, c.FactionSymbol, c.Accepted, c.Fulfilled)
 	}
 }
 
-func TestSmokeWaypoints(t *testing.T) {
-	client := smokeClient(t)
-
-	ctx, cancel := smokeCtx(t)
+func (s *SmokeSuite) TestWaypoints() {
+	ctx, cancel := s.ctx()
 	defer cancel()
 
-	first := firstShip(t, client, ctx)
+	first := s.firstShip(ctx)
 
-	waypoints, _, err := client.ListSystemWaypoints(ctx, spacetraders.ListWaypointsRequest{
+	waypoints, _, err := s.client.ListSystemWaypoints(ctx, spacetraders.ListWaypointsRequest{
 		SystemSymbol: first.Nav.SystemSymbol,
 		Limit:        50,
 	})
-	if err != nil {
-		t.Fatalf("ListSystemWaypoints: %+v", err)
-	}
+	s.Require().NoError(err, "ListSystemWaypoints")
 
-	t.Logf("waypoints in %s: count=%d", first.Nav.SystemSymbol, len(waypoints))
+	s.T().Logf("waypoints in %s: count=%d", first.Nav.SystemSymbol, len(waypoints))
 
 	foundField := false
 
 	for _, w := range waypoints {
-		t.Logf("  waypoint: symbol=%s type=%s", w.Symbol, w.Type)
+		s.T().Logf("  waypoint: symbol=%s type=%s", w.Symbol, w.Type)
 
 		if w.Type == ss.WaypointTypeAsteroidField {
 			foundField = true
@@ -161,28 +132,22 @@ func TestSmokeWaypoints(t *testing.T) {
 	}
 
 	if !foundField {
-		t.Logf("warning: no ASTEROID_FIELD found in %s (may be deeper in pagination)",
+		s.T().Logf("warning: no ASTEROID_FIELD found in %s (may be deeper in pagination)",
 			first.Nav.SystemSymbol)
 	}
 }
 
-func TestSmokePaginationSeq(t *testing.T) {
-	client := smokeClient(t)
-
-	ctx, cancel := smokeCtx(t)
+func (s *SmokeSuite) TestPaginationSeq() {
+	ctx, cancel := s.ctx()
 	defer cancel()
 
-	ships, _, err := client.ListMyShips(ctx, spacetraders.ListShipsRequest{Limit: 20})
-	if err != nil {
-		t.Fatalf("ListMyShips: %+v", err)
-	}
+	ships, _, err := s.client.ListMyShips(ctx, spacetraders.ListShipsRequest{Limit: 20})
+	s.Require().NoError(err, "ListMyShips")
 
 	count := 0
 
-	for _, seqErr := range client.ListMyShipsSeq(ctx, spacetraders.ListShipsRequest{Limit: 20}) {
-		if seqErr != nil {
-			t.Fatalf("ListMyShipsSeq error: %+v", seqErr)
-		}
+	for _, seqErr := range s.client.ListMyShipsSeq(ctx, spacetraders.ListShipsRequest{Limit: 20}) {
+		s.Require().NoError(seqErr, "ListMyShipsSeq error")
 
 		count++
 		if count >= len(ships) {
@@ -190,5 +155,9 @@ func TestSmokePaginationSeq(t *testing.T) {
 		}
 	}
 
-	t.Logf("ListMyShipsSeq yielded %d ships", count)
+	s.T().Logf("ListMyShipsSeq yielded %d ships", count)
+}
+
+func TestSmokeSuite(t *testing.T) {
+	suite.Run(t, new(SmokeSuite))
 }

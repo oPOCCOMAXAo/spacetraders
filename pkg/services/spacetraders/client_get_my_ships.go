@@ -4,6 +4,7 @@ import (
 	"context"
 
 	ss "github.com/opoccomaxao/spacetraders/pkg/services/spacetraders/structs"
+	"github.com/opoccomaxao/spacetraders/pkg/utils/sequtils"
 )
 
 type ListShipsRequest struct {
@@ -39,9 +40,15 @@ func (c *Client) ListMyShipsSeq(
 	ctx context.Context,
 	req ListShipsRequest,
 ) func(yield func(*ss.Ship, error) bool) {
-	return paginate(ctx, req.Page, req.Limit, func(page, limit int) ([]*ss.Ship, error) {
-		items, _, err := c.ListMyShips(ctx, ListShipsRequest{Page: page, Limit: limit})
+	return sequtils.Paginate(
+		ctx,
+		req.Page,
+		req.Limit,
+		defaultPageSize,
+		func(page, limit int) ([]*ss.Ship, error) {
+			items, _, err := c.ListMyShips(ctx, ListShipsRequest{Page: page, Limit: limit})
 
-		return toPtrSlice(items), err
-	})
+			return sequtils.ToPtrSlice(items), err
+		},
+	)
 }
