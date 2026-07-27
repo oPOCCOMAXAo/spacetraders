@@ -7,25 +7,31 @@ import (
 	ss "github.com/opoccomaxao/spacetraders/pkg/services/spacetraders/structs"
 )
 
+type OrbitShipRequest struct {
+	ShipSymbol string `json:"-"`
+}
+
+type OrbitShipResponse struct {
+	Nav ss.ShipNav `json:"nav"`
+}
+
 // OrbitShip commands a ship into orbit (required to extract resources).
 //
 // POST /my/ships/{shipSymbol}/orbit.
 func (c *Client) OrbitShip(
 	ctx context.Context,
-	shipSymbol string,
-) (ss.ShipNav, error) {
-	var res struct {
-		Nav ss.ShipNav `json:"nav"`
-	}
+	req OrbitShipRequest,
+) (OrbitShipResponse, error) {
+	var res OrbitShipResponse
 
 	err := c.Request(ctx, Request{
 		Method:    http.MethodPost,
-		Path:      "/my/ships/" + shipSymbol + "/orbit",
+		Path:      "/my/ships/" + req.ShipSymbol + "/orbit",
 		ResultRef: &res,
 	}, RequestOptions{})
 	if err != nil {
-		return ss.ShipNav{}, err
+		return OrbitShipResponse{}, err
 	}
 
-	return res.Nav, nil
+	return res, nil
 }

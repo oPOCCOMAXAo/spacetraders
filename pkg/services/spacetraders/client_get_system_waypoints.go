@@ -10,12 +10,17 @@ import (
 )
 
 type ListWaypointsRequest struct {
-	SystemSymbol string
-	Page         int
-	Limit        int
+	SystemSymbol string `json:"-"`
+	Page         int    `json:"-"`
+	Limit        int    `json:"-"`
 	// Traits optionally filters waypoints that expose the given trait symbols
 	// (e.g. "MARKETPLACE", "SHIPYARD"). Repeatable in the query string.
-	Traits []string
+	Traits []string `json:"-"`
+}
+
+type ListSystemWaypointsResponse struct {
+	Waypoints []ss.Waypoint
+	Meta      ss.Meta
 }
 
 // ListSystemWaypoints returns a single page of waypoints in a system.
@@ -24,7 +29,7 @@ type ListWaypointsRequest struct {
 func (c *Client) ListSystemWaypoints(
 	ctx context.Context,
 	req ListWaypointsRequest,
-) ([]ss.Waypoint, ss.Meta, error) {
+) (ListSystemWaypointsResponse, error) {
 	var res struct {
 		Waypoints []ss.Waypoint `json:"waypoints"`
 	}
@@ -41,10 +46,10 @@ func (c *Client) ListSystemWaypoints(
 		&res,
 	)
 	if err != nil {
-		return nil, ss.Meta{}, err
+		return ListSystemWaypointsResponse{}, err
 	}
 
-	return res.Waypoints, meta, nil
+	return ListSystemWaypointsResponse{Waypoints: res.Waypoints, Meta: meta}, nil
 }
 
 // ListSystemWaypointsSeq yields every waypoint in a system across all pages.
@@ -58,14 +63,14 @@ func (c *Client) ListSystemWaypointsSeq(
 		req.Limit,
 		defaultPageSize,
 		func(page, limit int) ([]*ss.Waypoint, error) {
-			items, _, err := c.ListSystemWaypoints(ctx, ListWaypointsRequest{
+			resp, err := c.ListSystemWaypoints(ctx, ListWaypointsRequest{
 				SystemSymbol: req.SystemSymbol,
 				Page:         page,
 				Limit:        limit,
 				Traits:       req.Traits,
 			})
 
-			return sequtils.ToPtrSlice(items), err
+			return sequtils.ToPtrSlice(resp.Waypoints), err
 		},
 	)
 }

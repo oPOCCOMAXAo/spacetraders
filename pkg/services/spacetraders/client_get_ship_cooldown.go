@@ -8,6 +8,14 @@ import (
 	pkgerrors "github.com/pkg/errors"
 )
 
+type GetShipCooldownRequest struct {
+	ShipSymbol string `json:"-"`
+}
+
+type GetShipCooldownResponse struct {
+	Cooldown ss.Cooldown
+}
+
 // GetShipCooldown returns the ship's current reactor cooldown.
 //
 // GET /my/ships/{shipSymbol}/cooldown
@@ -16,18 +24,18 @@ import (
 // in that case a zero-value Cooldown and nil error are returned.
 func (c *Client) GetShipCooldown(
 	ctx context.Context,
-	shipSymbol string,
-) (ss.Cooldown, error) {
-	var res ss.Cooldown
+	req GetShipCooldownRequest,
+) (GetShipCooldownResponse, error) {
+	var cooldown ss.Cooldown
 
 	err := c.Request(ctx, Request{
 		Method:    http.MethodGet,
-		Path:      "/my/ships/" + shipSymbol + "/cooldown",
-		ResultRef: &res,
+		Path:      "/my/ships/" + req.ShipSymbol + "/cooldown",
+		ResultRef: &cooldown,
 	}, RequestOptions{})
 	if err != nil {
-		return ss.Cooldown{}, pkgerrors.WithStack(err)
+		return GetShipCooldownResponse{}, pkgerrors.WithStack(err)
 	}
 
-	return res, nil
+	return GetShipCooldownResponse{Cooldown: cooldown}, nil
 }

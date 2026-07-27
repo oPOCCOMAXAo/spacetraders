@@ -7,28 +7,34 @@ import (
 	ss "github.com/opoccomaxao/spacetraders/pkg/services/spacetraders/structs"
 )
 
+type RefuelShipRequest struct {
+	ShipSymbol string `json:"-"`
+}
+
+type RefuelShipResponse struct {
+	Agent       ss.Agent       `json:"agent"`
+	Transaction ss.Transaction `json:"transaction"`
+	Fuel        ss.ShipFuel    `json:"fuel"`
+}
+
 // RefuelShip refuels the ship from the current marketplace. The ship must be
 // DOCKED at a waypoint with the Marketplace trait.
 //
 // POST /my/ships/{shipSymbol}/refuel.
 func (c *Client) RefuelShip(
 	ctx context.Context,
-	shipSymbol string,
-) (ss.Agent, ss.Transaction, ss.ShipFuel, error) {
-	var res struct {
-		Agent       ss.Agent       `json:"agent"`
-		Transaction ss.Transaction `json:"transaction"`
-		Fuel        ss.ShipFuel    `json:"fuel"`
-	}
+	req RefuelShipRequest,
+) (RefuelShipResponse, error) {
+	var res RefuelShipResponse
 
 	err := c.Request(ctx, Request{
 		Method:    http.MethodPost,
-		Path:      "/my/ships/" + shipSymbol + "/refuel",
+		Path:      "/my/ships/" + req.ShipSymbol + "/refuel",
 		ResultRef: &res,
 	}, RequestOptions{})
 	if err != nil {
-		return ss.Agent{}, ss.Transaction{}, ss.ShipFuel{}, err
+		return RefuelShipResponse{}, err
 	}
 
-	return res.Agent, res.Transaction, res.Fuel, nil
+	return res, nil
 }

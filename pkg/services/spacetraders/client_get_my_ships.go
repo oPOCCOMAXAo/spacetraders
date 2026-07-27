@@ -8,8 +8,13 @@ import (
 )
 
 type ListShipsRequest struct {
-	Page  int
-	Limit int
+	Page  int `json:"-"`
+	Limit int `json:"-"`
+}
+
+type ListMyShipsResponse struct {
+	Ships []ss.Ship
+	Meta  ss.Meta
 }
 
 // ListMyShips returns a single page of the agent's ships.
@@ -18,17 +23,17 @@ type ListShipsRequest struct {
 func (c *Client) ListMyShips(
 	ctx context.Context,
 	req ListShipsRequest,
-) ([]ss.Ship, ss.Meta, error) {
+) (ListMyShipsResponse, error) {
 	var res struct {
 		Ships []ss.Ship `json:"ships"`
 	}
 
 	meta, err := c.requestList(ctx, "/my/ships", req.Page, req.Limit, &res)
 	if err != nil {
-		return nil, ss.Meta{}, err
+		return ListMyShipsResponse{}, err
 	}
 
-	return res.Ships, meta, nil
+	return ListMyShipsResponse{Ships: res.Ships, Meta: meta}, nil
 }
 
 // ListMyShipsSeq yields every ship across all pages.
@@ -46,9 +51,9 @@ func (c *Client) ListMyShipsSeq(
 		req.Limit,
 		defaultPageSize,
 		func(page, limit int) ([]*ss.Ship, error) {
-			items, _, err := c.ListMyShips(ctx, ListShipsRequest{Page: page, Limit: limit})
+			resp, err := c.ListMyShips(ctx, ListShipsRequest{Page: page, Limit: limit})
 
-			return sequtils.ToPtrSlice(items), err
+			return sequtils.ToPtrSlice(resp.Ships), err
 		},
 	)
 }

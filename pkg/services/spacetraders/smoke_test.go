@@ -46,25 +46,27 @@ func (s *SmokeSuite) ctx() (context.Context, context.CancelFunc) {
 }
 
 func (s *SmokeSuite) firstShip(ctx context.Context) ss.Ship {
-	ships, _, err := s.client.ListMyShips(ctx, spacetraders.ListShipsRequest{Limit: 20})
+	resp, err := s.client.ListMyShips(ctx, spacetraders.ListShipsRequest{Limit: 20})
 	s.Require().NoError(err, "ListMyShips")
-	s.Require().NotEmpty(ships, "no ships returned")
+	s.Require().NotEmpty(resp.Ships, "no ships returned")
 
-	for _, ship := range ships {
+	for _, ship := range resp.Ships {
 		s.T().Logf("  ship: symbol=%s role=%s nav=%s waypoint=%s fuel=%d/%d",
 			ship.Symbol, ship.Registration.Role, ship.Nav.Status,
 			ship.Nav.WaypointSymbol, ship.Fuel.Current, ship.Fuel.Capacity)
 	}
 
-	return ships[0]
+	return resp.Ships[0]
 }
 
 func (s *SmokeSuite) TestAgent() {
 	ctx, cancel := s.ctx()
 	defer cancel()
 
-	agent, err := s.client.GetMyAgent(ctx)
+	agentResp, err := s.client.GetMyAgent(ctx, spacetraders.GetMyAgentRequest{})
 	s.Require().NoError(err, "GetMyAgent")
+
+	agent := agentResp.Agent
 
 	s.T().Logf("agent: symbol=%s credits=%d hq=%s faction=%s ships=%d",
 		agent.Symbol, agent.Credits, agent.Headquarters, agent.StartingFaction, agent.ShipCount)
@@ -79,14 +81,24 @@ func (s *SmokeSuite) TestShips() {
 
 	first := s.firstShip(ctx)
 
-	single, err := s.client.GetMyShip(ctx, first.Symbol)
+	singleResp, err := s.client.GetMyShip(
+		ctx,
+		spacetraders.GetMyShipRequest{ShipSymbol: first.Symbol},
+	)
 	s.Require().NoError(err, "GetMyShip")
+
+	single := singleResp.Ship
 
 	s.T().Logf("GetMyShip: symbol=%s frame=%s cargo=%d/%d",
 		single.Symbol, single.Frame.Symbol, single.Cargo.Units, single.Cargo.Capacity)
 
-	cooldown, err := s.client.GetShipCooldown(ctx, first.Symbol)
+	cooldownResp, err := s.client.GetShipCooldown(
+		ctx,
+		spacetraders.GetShipCooldownRequest{ShipSymbol: first.Symbol},
+	)
 	s.Require().NoError(err, "GetShipCooldown")
+
+	cooldown := cooldownResp.Cooldown
 
 	s.T().Logf("cooldown: remaining=%ds expiration=%s",
 		cooldown.RemainingSeconds, cooldown.Expiration)
@@ -96,8 +108,13 @@ func (s *SmokeSuite) TestContracts() {
 	ctx, cancel := s.ctx()
 	defer cancel()
 
-	contracts, _, err := s.client.ListMyContracts(ctx, spacetraders.ListContractsRequest{Limit: 20})
+	contractsResp, err := s.client.ListMyContracts(
+		ctx,
+		spacetraders.ListContractsRequest{Limit: 20},
+	)
 	s.Require().NoError(err, "ListMyContracts")
+
+	contracts := contractsResp.Contracts
 
 	s.T().Logf("contracts: count=%d", len(contracts))
 
@@ -113,11 +130,13 @@ func (s *SmokeSuite) TestWaypoints() {
 
 	first := s.firstShip(ctx)
 
-	waypoints, _, err := s.client.ListSystemWaypoints(ctx, spacetraders.ListWaypointsRequest{
+	waypointsResp, err := s.client.ListSystemWaypoints(ctx, spacetraders.ListWaypointsRequest{
 		SystemSymbol: first.Nav.SystemSymbol,
 		Limit:        50,
 	})
 	s.Require().NoError(err, "ListSystemWaypoints")
+
+	waypoints := waypointsResp.Waypoints
 
 	s.T().Logf("waypoints in %s: count=%d", first.Nav.SystemSymbol, len(waypoints))
 
@@ -141,8 +160,10 @@ func (s *SmokeSuite) TestPaginationSeq() {
 	ctx, cancel := s.ctx()
 	defer cancel()
 
-	ships, _, err := s.client.ListMyShips(ctx, spacetraders.ListShipsRequest{Limit: 20})
+	shipsResp, err := s.client.ListMyShips(ctx, spacetraders.ListShipsRequest{Limit: 20})
 	s.Require().NoError(err, "ListMyShips")
+
+	shipCount := len(shipsResp.Ships)
 
 	count := 0
 
@@ -150,7 +171,7 @@ func (s *SmokeSuite) TestPaginationSeq() {
 		s.Require().NoError(seqErr, "ListMyShipsSeq error")
 
 		count++
-		if count >= len(ships) {
+		if count >= shipCount {
 			break
 		}
 	}

@@ -7,27 +7,33 @@ import (
 	ss "github.com/opoccomaxao/spacetraders/pkg/services/spacetraders/structs"
 )
 
+type FulfillContractRequest struct {
+	ContractID string `json:"-"`
+}
+
+type FulfillContractResponse struct {
+	Agent    ss.Agent    `json:"agent"`
+	Contract ss.Contract `json:"contract"`
+}
+
 // FulfillContract fulfills a contract whose delivery terms are all met,
 // paying the on-fulfillment credits.
 //
 // POST /my/contracts/{contractId}/fulfill.
 func (c *Client) FulfillContract(
 	ctx context.Context,
-	contractID string,
-) (ss.Agent, ss.Contract, error) {
-	var res struct {
-		Agent    ss.Agent    `json:"agent"`
-		Contract ss.Contract `json:"contract"`
-	}
+	req FulfillContractRequest,
+) (FulfillContractResponse, error) {
+	var res FulfillContractResponse
 
 	err := c.Request(ctx, Request{
 		Method:    http.MethodPost,
-		Path:      "/my/contracts/" + contractID + "/fulfill",
+		Path:      "/my/contracts/" + req.ContractID + "/fulfill",
 		ResultRef: &res,
 	}, RequestOptions{})
 	if err != nil {
-		return ss.Agent{}, ss.Contract{}, err
+		return FulfillContractResponse{}, err
 	}
 
-	return res.Agent, res.Contract, nil
+	return res, nil
 }

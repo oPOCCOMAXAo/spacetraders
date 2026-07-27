@@ -8,8 +8,15 @@ import (
 )
 
 type SellCargoRequest struct {
-	Symbol string `json:"symbol"`
-	Units  int    `json:"units"`
+	ShipSymbol string `json:"-"`
+	Symbol     string `json:"symbol"`
+	Units      int    `json:"units"`
+}
+
+type SellCargoResponse struct {
+	Agent       ss.Agent       `json:"agent"`
+	Transaction ss.Transaction `json:"transaction"`
+	Cargo       ss.ShipCargo   `json:"cargo"`
 }
 
 // SellCargo sells units of a good from the ship's cargo at the current
@@ -18,24 +25,19 @@ type SellCargoRequest struct {
 // POST /my/ships/{shipSymbol}/sell.
 func (c *Client) SellCargo(
 	ctx context.Context,
-	shipSymbol string,
 	req SellCargoRequest,
-) (ss.Agent, ss.Transaction, ss.ShipCargo, error) {
-	var res struct {
-		Agent       ss.Agent       `json:"agent"`
-		Transaction ss.Transaction `json:"transaction"`
-		Cargo       ss.ShipCargo   `json:"cargo"`
-	}
+) (SellCargoResponse, error) {
+	var res SellCargoResponse
 
 	err := c.Request(ctx, Request{
 		Method:    http.MethodPost,
-		Path:      "/my/ships/" + shipSymbol + "/sell",
+		Path:      "/my/ships/" + req.ShipSymbol + "/sell",
 		Body:      req,
 		ResultRef: &res,
 	}, RequestOptions{})
 	if err != nil {
-		return ss.Agent{}, ss.Transaction{}, ss.ShipCargo{}, err
+		return SellCargoResponse{}, err
 	}
 
-	return res.Agent, res.Transaction, res.Cargo, nil
+	return res, nil
 }

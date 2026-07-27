@@ -7,25 +7,31 @@ import (
 	ss "github.com/opoccomaxao/spacetraders/pkg/services/spacetraders/structs"
 )
 
+type DockShipRequest struct {
+	ShipSymbol string `json:"-"`
+}
+
+type DockShipResponse struct {
+	Nav ss.ShipNav `json:"nav"`
+}
+
 // DockShip commands a ship to dock (required for market/contract actions).
 //
 // POST /my/ships/{shipSymbol}/dock.
 func (c *Client) DockShip(
 	ctx context.Context,
-	shipSymbol string,
-) (ss.ShipNav, error) {
-	var res struct {
-		Nav ss.ShipNav `json:"nav"`
-	}
+	req DockShipRequest,
+) (DockShipResponse, error) {
+	var res DockShipResponse
 
 	err := c.Request(ctx, Request{
 		Method:    http.MethodPost,
-		Path:      "/my/ships/" + shipSymbol + "/dock",
+		Path:      "/my/ships/" + req.ShipSymbol + "/dock",
 		ResultRef: &res,
 	}, RequestOptions{})
 	if err != nil {
-		return ss.ShipNav{}, err
+		return DockShipResponse{}, err
 	}
 
-	return res.Nav, nil
+	return res, nil
 }

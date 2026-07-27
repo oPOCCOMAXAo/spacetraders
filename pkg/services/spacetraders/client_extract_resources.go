@@ -19,28 +19,34 @@ type ExtractionYield struct {
 	Units  int    `json:"units"`
 }
 
+type ExtractResourcesRequest struct {
+	ShipSymbol string `json:"-"`
+}
+
+type ExtractResourcesResponse struct {
+	Extraction Extraction   `json:"extract"`
+	Cooldown   ss.Cooldown  `json:"cooldown"`
+	Cargo      ss.ShipCargo `json:"cargo"`
+}
+
 // ExtractResources mines resources from the ship's current waypoint. Requires
 // the ship to be IN_ORBIT at an extractable waypoint with an extractor mount.
 //
 // POST /my/ships/{shipSymbol}/extract.
 func (c *Client) ExtractResources(
 	ctx context.Context,
-	shipSymbol string,
-) (Extraction, ss.Cooldown, ss.ShipCargo, error) {
-	var res struct {
-		Extract  Extraction   `json:"extract"`
-		Cooldown ss.Cooldown  `json:"cooldown"`
-		Cargo    ss.ShipCargo `json:"cargo"`
-	}
+	req ExtractResourcesRequest,
+) (ExtractResourcesResponse, error) {
+	var res ExtractResourcesResponse
 
 	err := c.Request(ctx, Request{
 		Method:    http.MethodPost,
-		Path:      "/my/ships/" + shipSymbol + "/extract",
+		Path:      "/my/ships/" + req.ShipSymbol + "/extract",
 		ResultRef: &res,
 	}, RequestOptions{})
 	if err != nil {
-		return Extraction{}, ss.Cooldown{}, ss.ShipCargo{}, err
+		return ExtractResourcesResponse{}, err
 	}
 
-	return res.Extract, res.Cooldown, res.Cargo, nil
+	return res, nil
 }

@@ -8,9 +8,15 @@ import (
 )
 
 type DeliverContractRequest struct {
+	ContractID  string `json:"-"`
 	ShipSymbol  string `json:"shipSymbol"`
 	TradeSymbol string `json:"tradeSymbol"`
 	Units       int    `json:"units"`
+}
+
+type DeliverContractResponse struct {
+	Cargo    ss.ShipCargo `json:"cargo"`
+	Contract ss.Contract  `json:"contract"`
 }
 
 // DeliverContract delivers cargo from the ship to a contract. The ship must
@@ -19,23 +25,19 @@ type DeliverContractRequest struct {
 // POST /my/contracts/{contractId}/deliver.
 func (c *Client) DeliverContract(
 	ctx context.Context,
-	contractID string,
 	req DeliverContractRequest,
-) (ss.ShipCargo, ss.Contract, error) {
-	var res struct {
-		Cargo    ss.ShipCargo `json:"cargo"`
-		Contract ss.Contract  `json:"contract"`
-	}
+) (DeliverContractResponse, error) {
+	var res DeliverContractResponse
 
 	err := c.Request(ctx, Request{
 		Method:    http.MethodPost,
-		Path:      "/my/contracts/" + contractID + "/deliver",
+		Path:      "/my/contracts/" + req.ContractID + "/deliver",
 		Body:      req,
 		ResultRef: &res,
 	}, RequestOptions{})
 	if err != nil {
-		return ss.ShipCargo{}, ss.Contract{}, err
+		return DeliverContractResponse{}, err
 	}
 
-	return res.Cargo, res.Contract, nil
+	return res, nil
 }
